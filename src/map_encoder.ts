@@ -1,3 +1,4 @@
+import * as _ from 'underscore';
 import * as fs from 'fs';
 import {newMap} from "./map_factory";
 
@@ -36,9 +37,20 @@ export function ToMap<TKey>(obj:Indexer<any>) : Map<TKey,any>{
     return strMap;
 }
 
-export function Serialize<K,V>(map : Map<K,V>) : string {
+export function SerializeMap<K,V>(map : Map<K,V>) : string {
     return JSON.stringify(ToObject(map));
 }
+
+function SerializeMapAsync<TKey,TValue>(map:Map<TKey,TValue>):Promise<string> {
+    return new Promise((resolve, reject)=> {
+        try {
+            resolve(SerializeMap(map))
+        } catch (e) {
+            reject(e);
+        }
+    })
+}
+
 
 export function SerializeToFile<K,V>(filePath: string, map : Map<K,V>) : void {
      fs.writeFileSync(
@@ -51,10 +63,24 @@ export function Deserialize<K,V>(json :string) :  Map<K,V> {
     return ToMap<K>(JSON.parse(json));
 }
 
-export function DeserializeFromFile<K,V>(filePath:string) :  Map<K,V> {
+export function DeserializeFromFileSync<K,V>(filePath:string) :  Map<K,V> {
     ToMap(JSON.parse(fs.readFileSync(filePath, 'utf-8')));
     return
 }
+
+export function DeserializeFromFileAsync<K,V>(filePath:string) :  Promise<Map<K,V>> {
+        
+    return new Promise((rs,rj)=>{
+            fs.readFile(filePath, 'utf-8', (err, data)=>{
+                if(_.isError(err)){
+                    rj(err);
+                }
+                var x = ToMap(JSON.parse(data));
+                rs(x);
+            });
+        })
+}
+
 
 
 export function ToMaps<T,TKey>(key: (target:T) => TKey, targets:T[]) : Map<TKey,Map<string, any>> {

@@ -2,13 +2,8 @@ import 'reflect-metadata';
 
 import {assert} from 'chai';
 
-import {Thing} from "./Thing";
+import {ObservableMap} from "./map_factory";
 
-
-import {isObject, ToMap, ToMaps, FromMap, FromMaps, ToObject} from "./map_encoder";
-
-import * as chain from './Chain';
-import {newMap, ObservableMap} from "./map_factory";
 import {profile} from "./test_tools";
 
 

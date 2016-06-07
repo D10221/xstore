@@ -1,4 +1,5 @@
 import * as Rx from 'rx';
+import {EventArgs} from "./DisposableBase";
 
 
 export function newMap<TKey,TValue>():Map<TKey,TValue> {
@@ -64,17 +65,6 @@ export class ObservableMap<TKey,TValue> extends Map<TKey,TValue> implements Rx.D
 
 }
 
-
-export interface KeyValue {
-    key:string ;
-    value:any
-}
-
-export interface EventArgs {
-    sender:any,
-    args:KeyValue ;
-
-}
 
 
 

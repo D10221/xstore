@@ -6,6 +6,7 @@ import {Thing} from "./Thing";
 import * as chain from './Chain';
 import {Store} from "./store";
 import {profile} from "./test_tools";
+import {FileStorage} from "./FileStorage";
 
 
 describe("store", ()=> {
@@ -19,12 +20,13 @@ describe("store", ()=> {
             x=> new Thing(x, x.toString()))
             .toArray();
 
-        store = new Store(Thing, x=>x.id, things);
+        store = new Store(Thing, x=>x.id, FileStorage.default() ,things);
     });
 
     it("find Key", ()=> {
 
         var found:any = null;
+
 
         profile('find1stKey', ()=> {
             found = store.findKey(x=> x == 0);

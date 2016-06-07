@@ -8,15 +8,17 @@ import * as chain from './Chain';
 import {Store} from "./store";
 import {profile} from "./test_tools";
 import {ObservableMap} from "./map_factory";
-import {Serialize} from "./map_encoder";
+import {SerializeMap, Deserialize, DeserializeFromFileSync, DeserializeFromFileAsync} from "./map_encoder";
+import * as iterables from './iterables';
+import {FileStorage} from "./FileStorage";
 
 describe('persistance', ()=>{
 
     var store:Store<Thing,number>;
     
-    var filePath = path.join(process.cwd(), 'db.json');
+    var storePath = path.join(process.cwd(), 'db.json');
 
-    var mapSize = 300000;
+    var mapSize = 3;
 
     beforeEach(()=> {
 
@@ -24,54 +26,40 @@ describe('persistance', ()=>{
             x=> new Thing(x, x.toString()))
             .toArray();
 
-        store = new Store(Thing, x=>x.id, things);
+        store = new Store(Thing, x=>x.id, FileStorage.default() ,things);
     });
 
 
 
-    it('persists on change', function(done){
+    it('persists on change: add', async () => {
 
-        this.timeout(5000);
+        var mapSize = 3 ;
 
-        store.add(new Thing(mapSize+1, 'new item'));
+        var key = mapSize+1;
+
+        var things = chain.generate(0, mapSize,
+            x=> new Thing(x, x.toString()))
+            .toArray();
+
+        store = new Store(Thing, x=>x.id, FileStorage.default() ,things);
+
+        var thing = new Thing(key, key.toString());
+
+        console.time('add:');
+
+        var k = await store.add(thing);
+
+        console.timeEnd('add:');
         
-        mapSize++;
+        assert.equal(k.id, key);
 
-        var calls = 0 ;
-        (store.maps as ObservableMap<number, Map<string,any>>)
-            .events
-            //.where(e=>e.args.key == 'set')
-            .subscribe(e=>{
+        var storeData = await DeserializeFromFileAsync<string,Map<string,any>>(storePath) ;
 
-                var map : ObservableMap<number, Map<string,any>> = null;
-                var data:string;
-                var key = e.args.key;
+        var found = storeData.get(key.toString());
 
-                profile(`on ${key} => ${mapSize} => serialize`,()=>{
-                    map = (e.sender as ObservableMap<number, Map<string,any>>);
-                    data = Serialize(map);
-                });
+        var id = found.get('id');
 
-                profile(`${key} : write toFile`, ()=>{
-                    fs.writeFileSync(filePath, data)
-                });
-
-                calls++;
-            });
-
-        var thing = new Thing(mapSize+1, 'new item');
-
-        profile('add : getKey',()=>{
-            store.add(thing);
-        });
-        
-        store.remove(thing);
-
-        store.clear();
-
-        assert.equal(calls, 3);
-
-        done();
+        assert.equal(id, key);
 
     });
 

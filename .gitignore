@@ -6,3 +6,4 @@ typings/
 built/
 *.zip
 db.json
+*.db

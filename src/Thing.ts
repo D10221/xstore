@@ -1,8 +1,10 @@
-function key(params:string) {
+import 'reflect-metadata';
+
+function store(params:string) {
     return Reflect.metadata('persistance:key', params);
 }
 
-@key('thing')
+@store('things')
 export class Thing {
 
     constructor(id?:number, xname?: string) {

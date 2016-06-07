@@ -58,3 +58,11 @@ export function any<T>(items:IterableIterator<T>, test:(x:T)=> boolean ): boolea
     }
     return false;
 }
+
+export function last<T>(items:IterableIterator<T>) : T {
+    var returns : T = null;
+    for(var result = items.next(); !result.done; result = items.next()){
+        returns = result.value ;
+    }
+    return returns;
+}
