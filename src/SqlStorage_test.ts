@@ -25,12 +25,9 @@ describe('SqliteStorage Funcs', ()=>{
         xType.xKey = '1';
         xType.xValue = 'one';
       
-       await sqs.saveAsync(db, 'test', 'xKey', xType )
+       await sqs.saveAsync(db, 'test', 'xKey', xType );
 
-        var x = await iterables.first(
-            sqs.byKeySync(db, 'test', 'xKey', XType),
-            item=> !_.isUndefined(item)
-        );
+        var x = await  sqs.byKey(db, 'test', 'xKey', XType);
        
         assert.equal(x.xKey, '1');
       

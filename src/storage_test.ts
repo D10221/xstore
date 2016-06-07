@@ -23,9 +23,9 @@ describe('SqliteStorage', ()=>{
        
        var thing =  new Thing(0,'0');
 
-       storage.set(0, thing);
+       storage.set(0, Promise.resolve(thing));
 
-       var first = storage.get(0);
+       var first = await storage.get(0);
 
        assert.equal(first, '{"id":0,"xname":"x"}')
 

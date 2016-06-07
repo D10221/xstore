@@ -6,6 +6,9 @@ import {Lazy} from "./lazy";
 import {Database} from "sqlite3";
 import {ObservableBase} from "./DisposableBase";
 import {first} from "./iterables";
+import * as Rx from 'rx';
+import isPromise = Rx.helpers.isPromise;
+import {allAsync, execAsync, runAsync} from './sqliteAsync'
 
 export var dbPath = "storage.db";
 
@@ -47,10 +50,11 @@ export class SqliteStorage<TKey, TValue> extends ObservableBase implements Map<T
     }
 
     delete(key:TKey): boolean {
-
-        deleteStoreKeySync(this.db, this.storeKey, key.toString());
-
-        this.publish('', { key: '' , value: ''});
+        
+        run(byKey(this.db, this.storeKey, key, this.type),
+            deleteStoreKey(this.db, this.storeKey, key.toString()),
+            Promise.resolve(this.publish('delete', { key: key , value: ''}))
+        );
 
         return true;
     }
@@ -77,8 +81,16 @@ export class SqliteStorage<TKey, TValue> extends ObservableBase implements Map<T
         return null;
     }
 
-    set(key:TKey, value?:Promise<TValue>): Map<TKey,Promise<TValue>> {
-
+    set(key:TKey, pvalue?:any): Map<TKey,Promise<TValue>> {
+        
+        var value = isPromise(pvalue) ? pvalue : Promise.resolve(pvalue);
+       
+        chain(
+            ()=> value,
+            (xvalue)=> saveAsync(this.db, this.storeKey, key,xvalue),
+            ()=> Promise.resolve(this.publish('set', { key: key, value: value} ))
+        );
+        
         return this;
     }
 
@@ -90,7 +102,7 @@ export class SqliteStorage<TKey, TValue> extends ObservableBase implements Map<T
 
     }
 
-    [Symbol.iterator]():IterableIterator<[TKey,TValue]>{
+    [Symbol.iterator]():IterableIterator<[TKey,Promise<TValue>]>{
          return null;
     };
 
@@ -99,58 +111,15 @@ export class SqliteStorage<TKey, TValue> extends ObservableBase implements Map<T
 }
 
 
-function runAsync(db:Database, sql:string):Promise<any> {
-
-    return new Promise((resolve, reject)=> {
-        db.serialize(()=>{
-            db.run(sql, e=> {
-                if (_.isError(e)) {
-                    reject(e);
-                    return;
-                }
-                resolve(true)
-            })
-        })
-    });
-}
-
-
-export function allAsync<T>(db:Database, sql:string):Promise<T[]> {
-    return new Promise((resolve, reject)=> {
-        db.serialize(()=>{
-            db.all(sql, (err, data /*rows*/)=> {
-                if (err) {
-                    reject(err);
-                    return
-                }
-                resolve(data);
-            })
-        })
-    });
-}
-function execAsync(db:Database, sql:string) :Promise<Database>{
-    return new Promise((resolve, reject)=> {
-        db.serialize(()=>{
-            db.exec(sql, (err)=> {
-                if (err) {
-                    reject(err);
-                    return
-                }
-                resolve(db);
-            })
-        })
-    });
-}
-
 export function updateAsync<TKey>(db:Database , storeKey:string , key:TKey, data: string) :Promise<any> {
-    return runAsync(db, `UPDATE ${storeKey}_store  SET data = '${data}' where ID = '${key}'`)
+    return runAsync(db, `UPDATE ${storeKey}  SET data = '${data}' where ID = '${key}'`)
 }
 
 export function insertAsync<TKey>(db:Database , storeKey:string , key:TKey, data: string) : Promise<any> {
-    return runAsync(db, `INSERT OR IGNORE INTO ${storeKey}_store (id, data) VALUES ('${key}', '${data}')`)
+    return runAsync(db, `INSERT OR IGNORE INTO ${storeKey} (id, data) VALUES ('${key}', '${data}')`)
 }
 
-export function saveAsync<T, TKey>(db:Database , storeKey:string , key:TKey, type:T):Promise<any> {
+export function saveAsync<T, TKey>(db:Database , storeKey:string , key:TKey, type:T): Promise<any> {
 
     return new Promise(async(resolve, reject)=> {
 
@@ -173,7 +142,7 @@ export function saveAsync<T, TKey>(db:Database , storeKey:string , key:TKey, typ
 export function createStore(db:Database, storeKey: string) : Promise<Database>{
 
     return execAsync(db,
-        `CREATE TABLE IF NOT EXISTS ${storeKey}_store (ID TEXT UNIQUE NOT NULL, DATA BLOB NOT NULL)`)
+        `CREATE TABLE IF NOT EXISTS ${storeKey} (ID TEXT UNIQUE NOT NULL, DATA BLOB NOT NULL)`)
 }
 
 export function dropStore(db:Database, storeKey: string) : Promise<Database>{
@@ -189,24 +158,22 @@ export function deleteStoreKey(db:Database, storeKey: string ,itemKey: string) :
     return execAsync(db, `DELETE ${storeKey} WHERE id = '${itemKey}'`);
 }
 
-export function* deleteStoreKeySync(db:Database, storeKey: string ,itemKey: string) : IterableIterator<boolean> {
-
-    const caller = yield; // (A)
-
-    deleteStoreKey(db,storeKey,itemKey)
-        .then(() =>  caller.success(true))
-}
 
 export function byKey<TKey, TValue>(db:Database, storeKey: string, key:TKey, type: {new():TValue;}): Promise<TValue>{
 
     return allAsync(db, `SELECT data from ${storeKey} where id = '${key}'`)
         //TODO simplify FromMap(this.type,ToMap(rows[0]))
-        .then(rows => FromMap(type,ToMap(rows[0])));
+        .then(rows => {
+            var row = rows[0];
+            return FromMap(type,ToMap(row));
+        });
 }
 
 export function all(db:Database, storeKey:string  ) : Promise<Map<string,any>[]> {
     return allAsync(db,`SELECT data from ${this.storeKey}`)
-        .then(rows => rows.map(row=> ToMap(row)));
+        .then(rows => {
+            return rows.map(row=> ToMap(row))
+        });
 }
 
 
@@ -246,4 +213,17 @@ class DbIterator<T> implements  IterableIterator<T> {
 
     //throw?(e?: any): IteratorResult<T> {};
 
+}
+
+async function run(...promises: Promise<any>[]){
+    for(var promise of promises){
+        await promise;
+    }
+}
+
+async function chain(...promises: ((x:Promise<any>)=> Promise<any> )[]){
+    var res = null;
+    for(var promise of promises){
+        res = await promise(res);
+    }
 }
