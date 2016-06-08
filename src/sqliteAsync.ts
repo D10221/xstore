@@ -42,3 +42,19 @@ export function execAsync(db:Database, sql:string) :Promise<Database>{
         })
     });
 }
+
+export function execManyAsync(db:Database,...sql:string[]) :Promise<Database>{
+    return new Promise((resolve, reject)=> {
+        db.serialize(()=>{
+            for(var script of sql){
+                db.exec(script, (err)=> {
+                    if (err) {
+                        reject(err);
+                        return
+                    }
+                })
+            }
+            resolve(db);
+        })
+    });
+}

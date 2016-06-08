@@ -1,101 +1,106 @@
-import {ObservableBase, KeyValue } from './DisposableBase';
-import * as sqlite from 'sqlite3';
+import * as Rx from 'rx';
+import {ObservableBase, KeyValue} from './DisposableBase';
 import * as sqliteAsync from './sqliteAsync';
+import {Database} from "sqlite3";
 
-import Database = sqlite.Database;
 
-export class AsyncMap<K,V> extends ObservableBase implements Map<K,Promise<V>> {
-   
-    get storeName() :string {
+/***
+ * Can't implement Map<K,Promise<V>> without breaking it's contract 
+ */
+export class AsyncMap<K,V> extends ObservableBase /*implements Map<K,Promise<V>>*/ {
+
+    get storeName():string {
         return `${this._storeName}_store`
-    }  
+    }
 
-    constructor(
-            private db:Database,
-            private _storeName:string){
+    constructor(private db:Database,
+                private _storeName:string) {
         //...        
         super();
+        this._errors = new Rx.Subject<Error>();
 
-        sqliteAsync.execAsync(db, `create table if not exists ${this.storeName} (key text unique, value blob)`).then(()=>{
+        sqliteAsync.execAsync(db, `create table if not exists ${this.storeName} (key text unique, value blob)`).then(()=> {
             this.publish('ready', true);
-        }).catch(e=>{
-            console.log(e);
-            this.publish('ready', false);
-        });
+        })
+        .catch(this.onError)
     }
-
-    clear(): void {
-        sqliteAsync.execAsync(this.db, `delete ${this.storeName}`).then(()=>{
+    onError =(e) => {
+        if(e){
+            this._errors.onNext(e);
+        }
+    };
+    
+    clear(): Promise<any> {
+        return sqliteAsync.execAsync(this.db, `delete ${this.storeName}`).then(()=> {
             this.publish('clear', true);
-        }).catch(e=>{
-            console.log(e);
-            this.publish('clear', false);
         })
+        .catch(this.onError);
     }
 
-    delete(key: K): boolean {
-        sqliteAsync.execAsync(this.db, `delete ${this.storeName} where key = '${key}'`)
-        .then(()=>{
-            this.publish('delete', { key: key, value: true } );
-        }).catch(e=>{
-            console.log(e);
-            this.publish('delete', { key: key, value: false } );
-        })
-        return true;
+    delete(key:K): Promise<boolean> {
+        return sqliteAsync.execAsync(this.db,
+            `delete ${this.storeName} where key = '${key}'`)
+            .then(()=> {
+                this.publish('delete', {key: key, value: true});
+                return true;
+            })
+            .catch(this.onError)
     }
 
-    *entries(): IterableIterator<[K, Promise<V>]>{
+    *entries():IterableIterator<[K, Promise<V>]> {
         let caller = yield null
     }
 
-    forEach(callbackfn: (value: Promise<V>, index: K, map: Map<K, Promise<V>>) => void, thisArg?: any): void{
+    forEach(callbackfn:(value:Promise<V>, index:K, map:Map<K, Promise<V>>) => void, thisArg?:any):void {
 
     }
 
-    get(key: K): Promise<V>{
+    get(key:K):Promise<V> {
+        var query = `SELECT value from ${this.storeName} where key = '${key}'`;
         return sqliteAsync
-        .allAsync<KeyValue>(this.db, `SELECT * from ${this.storeName} where key = '${key}'`)
-        .then(x=>  x[0])
-        .then(x=> x&&x.value ? JSON.parse(x.value): null )
-        .catch(e=>{
-            console.log(e);
-        });
+            .allAsync<KeyValue>(this.db, query)
+            .then(x=>
+                x[0]
+            )
+            .then(x=>
+                x && x.value ? JSON.parse(x.value) : null
+            )
+            .catch(this.onError);
     }
 
-    has(key: K): boolean {
-        return true;
-    }
-
-    *keys(): IterableIterator<K>{
-        let caller = yield null;
-    }
-
-    set(key: K, value?: Promise<V>): Map<K, Promise<V>> {
-        value        
-        .then(v=> sqliteAsync.execAsync(this.db, `UPDATE ${this.storeName} set value = ${JSON.stringify(v)} where key = '${key}'`))
-        .then(v=> sqliteAsync.execAsync(this.db, `INSERT OR IGNORE INTO ${this.storeName} (key,value) VALUES ('${key}', ${JSON.stringify(v)})`))
-        .then(v=> sqliteAsync.allAsync(this.db,`SELECT count() from ${this.storeName} where key = '${key}'`))
-        .then((v)=>{
-            this.publish('set', { key: key, value: v.length > 0  } );
-        }).catch(e=>{
-            this.publish('set', { key: key, value: false } );
-        })
-        .catch(e=>{
-            console.log(e);
-        });
-
-        return this;
+    set(key:K, v?:V): Promise<this> {
+            var insert = `INSERT OR REPLACE INTO ${this.storeName} (key,value) VALUES ('${key}', '${JSON.stringify(v)}')`;
+            return sqliteAsync.execAsync(this.db,insert)
+            .then((v)=> {
+                this.publish('set', {key: key, value: true});
+                return this;
+            })
+            .catch(this.onError);
     };
 
-    size: number ;
-    
-    *values(): IterableIterator<Promise<V>> {
+    _errors = new Rx.Subject<Error>();
+
+    get errors():Rx.Observable<Error> {
+        return this._errors.asObservable();
+    }
+
+    has(key:K):Promise<boolean> {
+        return Promise.resolve(true);
+    }
+
+    *keys():IterableIterator<K> {
         let caller = yield null;
     }
 
-    *[Symbol.iterator]():IterableIterator<[K,Promise<V>]>{
+    size:number;
+
+    *values():IterableIterator<Promise<V>> {
         let caller = yield null;
     }
 
-    [Symbol.toStringTag]: "Map";
+    *[Symbol.iterator]():IterableIterator<[K,Promise<V>]> {
+        let caller = yield null;
+    }
+
+    [Symbol.toStringTag]:"AsyncMap";
 }
