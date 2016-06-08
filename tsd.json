@@ -22,6 +22,9 @@
     },
     "sqlite3/sqlite3.d.ts": {
       "commit": "473232e5dbd179e9ee682fab12f796720f37b118"
+    },
+    "bluebird/bluebird.d.ts": {
+      "commit": "e0e746833c4cd61e07f24d00e32baa9481e7ba59"
     }
   }
 }

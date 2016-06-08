@@ -4,33 +4,45 @@ import {assert} from 'chai';
 import {Database} from 'sqlite3';
 import {AsyncMap} from './AsyncMap';
 
-describe('AsyncMap',()=>{
-    
-    var db:Database;
-    var map: AsyncMap<number, string>;
-    var dbPath = path.join(process.cwd(), 'test.db'); 
-    
-    beforeEach(()=>{
-        db = new Database(dbPath);
-        map = new AsyncMap<number, string>(db,'things');
+var dbPath = path.join(process.cwd(), 'test.db');
 
-    });
+describe('AsyncMap', () => {
 
-    it('works', async ()=>{
+    it('works', async () => {        
+        
+        var db = new Database(dbPath);
 
-            map.errors.subscribe(console.log);
-            //map.events.where(e=>e.args.key == 'set').subscribe(console.log);
+        var map = await new AsyncMap<number, string>(db, 'things').ready();
+        
+        map.errors.subscribe(console.log);
 
-            await map.set(0, 'x');
+        map.when('set')            
+            .subscribe(console.log);
 
-            var value = await map.get(0);
-            
-            assert.equal('x', value);
+        await map.set(0, 'x');
 
-            await map.set(0, 'y');
+        var value = await map.get(0);
 
-            value = await map.get(0);
+        assert.equal('x', value);
 
-            assert.equal('y', value);
+        console.time('set');
+        await map.set(0, 'y');
+        console.timeEnd('set');
+        console.time('set 2');
+        await map.set(0, 'y');
+        console.timeEnd('set 2');
+
+        console.time('get');
+        value = await map.get(0);
+        console.timeEnd('get');
+
+        assert.equal('y', value);
+
+        console.time('set get');
+        var x = await map.set(1, 'xyz').then(m => m.get(1));
+        console.timeEnd('set get');
+
+        assert.equal(x, 'xyz');
     });
 });
+

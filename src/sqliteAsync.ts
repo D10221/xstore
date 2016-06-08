@@ -1,4 +1,4 @@
-import {Database} from "sqlite3";
+import {Database, Statement} from "sqlite3";
 
 export function runAsync(db:Database, sql:string):Promise<any> {
 
@@ -29,9 +29,11 @@ export function allAsync<T>(db:Database, sql:string):Promise<T[]> {
         })
     });
 }
+
 export function execAsync(db:Database, sql:string) :Promise<Database>{
+        
     return new Promise((resolve, reject)=> {
-        db.serialize(()=>{
+        db.serialize(()=>{            
             db.exec(sql, (err)=> {
                 if (err) {
                     reject(err);
@@ -45,7 +47,8 @@ export function execAsync(db:Database, sql:string) :Promise<Database>{
 
 export function execManyAsync(db:Database,...sql:string[]) :Promise<Database>{
     return new Promise((resolve, reject)=> {
-        db.serialize(()=>{
+        db.serialize(()=>
+        {
             for(var script of sql){
                 db.exec(script, (err)=> {
                     if (err) {
