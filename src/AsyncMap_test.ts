@@ -44,5 +44,32 @@ describe('AsyncMap', () => {
 
         assert.equal(x, 'xyz');
     });
+
+    it('keys', async ()=>{
+
+        var db = new Database(dbPath);
+
+        var map = await new AsyncMap<number, string>(db, 'things')
+            .ready();
+
+        assert.isTrue(map._ready);
+
+        map.errors.subscribe(e=> { throw e; });
+
+        await map.clear();
+
+        await map.set(1,'1');
+
+        var value:number;
+
+        for(var key of map.keys()){
+            value = await key;
+        }
+
+        console.log('done');
+        assert.equal(value, 1);
+
+
+    })
 });
 

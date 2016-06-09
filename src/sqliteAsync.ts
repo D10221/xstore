@@ -61,3 +61,22 @@ export function execManyAsync(db:Database,...sql:string[]) :Promise<Database>{
         })
     });
 }
+
+export function eachAsync<T>(db:Database, cmd:string, params?:any[]|{} ) : Promise<T>{
+    
+    return new Promise((resolve,reject)=>{
+        db.serialize(()=>{
+            try{
+                db.each(cmd, params, (err, data)=>{
+                    if(err){
+                        reject(err);
+                        return;
+                    }
+                    resolve(data);
+                })
+            }catch(e){
+                reject(e);
+            }
+        });
+    });
+}

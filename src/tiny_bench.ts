@@ -66,6 +66,7 @@ describe('sqlite',  ()=>{
     console.timeEnd('sqlite insert statement 2');
 
     params.$key = 'q1';
+
     console.time('sqlite insert statement 3');
     await new Promise((rs, rj)=>{
         statement.run( params ,err=>{
@@ -104,36 +105,6 @@ describe('sqlite',  ()=>{
     assert.equal(data[0].key, 'z');
     assert.equal(data[0].value, 'z');
     
-    })
-
-});
-
-describe('generate',()=>{
-
-   let sqlCmd = "select key from things_store";
-
-    function* keys(db:Database){
-        let res = yield  db.each(sqlCmd,function* (e,data){
-            if(e){
-                throw e;
-            }
-            yield data;            
-        })
-    }
-     
-
-    it('What?',(done)=> {
-        
-        var db = new Database(dbPath);
-
-        var called = false;
-        
-        var callBack = { success : ()=> {
-            called = true;
-            done();
-        }} 
-        
-                        
     })
 
 });
