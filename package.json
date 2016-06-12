@@ -2,11 +2,11 @@
   "name": "mapStore",
   "version": "0.0.1",
   "description": "map store",
-  "main": "linq.ts",
+  "main": "built/gen.js",
   "scripts": {
     "start": "tsc -w",
     "pretest": "npm run build",
-    "test": "mocha built",
+    "test": "mocha built/gen.js",
     "test:AsyncMap": "npm run build && mocha built/AsyncMap_test.js",
     "test:tiny_bench": "npm run build && mocha built/tiny_bench.js",
     "docs": "typedoc --out ../docs/ linq.ts -m commonjs -t ES6",

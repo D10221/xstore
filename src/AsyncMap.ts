@@ -4,6 +4,8 @@ import * as sqliteAsync from './sqliteAsync';
 import {Database} from "sqlite3";
 import {eachAsync} from "./sqliteAsync";
 import {execAsync} from "./sqliteAsync";
+import {whileNotEmpty} from "./whileNotEmpty";
+import {allAsync} from "./sqliteAsync";
 
 /***
  * Can't implement Map<K,Promise<V>> without breaking it's contract
@@ -59,10 +61,11 @@ export class AsyncMap<K,V> extends ObservableBase /*implements Map<K,Promise<V>>
         }
     };
 
-    clear():Promise<any> {
+    clear():Promise<this> {
         return sqliteAsync.execAsync(this.db, `delete from ${this.storeName}`).then(()=> {
             this.publish('clear', true);
         })
+            .then(x=> this)
             .catch(this.onError);
     }
 
@@ -77,11 +80,12 @@ export class AsyncMap<K,V> extends ObservableBase /*implements Map<K,Promise<V>>
     }
 
     *entries():IterableIterator<[K, Promise<V>]> {
+        //Not Implemented
         let caller = yield null
     }
 
     forEach(callbackfn:(value:Promise<V>, index:K, map:Map<K, Promise<V>>) => void, thisArg?:any):void {
-
+        //Not Implemented
     }
 
     get(key:K):Promise<V> {
@@ -117,37 +121,30 @@ export class AsyncMap<K,V> extends ObservableBase /*implements Map<K,Promise<V>>
         return Promise.resolve(true);
     }
 
-    nextKey(skip:number, o:Rx.Observer<K>) :Promise<K> {
-        return eachAsync<{key:K}>(this.db,
-            `select key from ${this.storeName} limit $skip, $count`, {
-                $skip: skip,
-                $count: 1
-            })
-            .then(x=> {
-                if (!x.key) {
-                    o.onCompleted();
-                    return undefined;
-                }
-                o.onNext(x.key);
-                return x.key;
-            })
+    nextKey(from:number):Promise<K> {
+
+        return allAsync<{ key:K }>(this.db,
+            `select key from ${this.storeName} order by key limit ${from}, 1`)
+            .then(x => {
+                let f = x[0];
+                return f ? f.key : null;
+            });
     }
 
+    /***
+     * Super Slow!
+     */
     *keys():IterableIterator<Promise<K>> {
 
-        var skip = 0;
+        let i = 0;
 
-        var  completed = false;
+        var from = this.nextKey(i);
 
-        var observer = Rx.Observer.create(
-            x=> {},
-            e=> { throw e ;},
-            ()=> {
-                completed = true;
-            });
+        var next = ()=> this.nextKey(i++);
 
-        while (!completed) {
-            yield this.nextKey(skip++, observer);
+        for (var keyPromise of whileNotEmpty(from, next)) {
+
+            yield keyPromise;
         }
     }
 

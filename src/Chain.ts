@@ -1,4 +1,4 @@
-import {range, filter, select , toArray , first } from "./iterables";
+import {range, filter, select as selects, toArray , first } from "./iterables";
 
 export function generate<T>(start:number, end:number , transform:(t:number)=> T) : Chain<T>{
     return new Chain(range(start,end)).select(transform );
@@ -24,7 +24,7 @@ export class Chain<TValue> {
         return first( this.items ,predicate);
     }
 
-    select = <TR>(transform:(t:TValue)=> TR) : Chain<TR> => new Chain(select(this.items, transform));
+    select = <TR>(transform:(t:TValue)=> TR) : Chain<TR> => new Chain(selects(this.items, transform));
     
 
 }

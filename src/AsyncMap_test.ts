@@ -47,27 +47,38 @@ describe('AsyncMap', () => {
 
     it('keys', async ()=>{
 
-        var db = new Database(dbPath);
+        const max = 11;
 
-        var map = await new AsyncMap<number, string>(db, 'things')
-            .ready();
+        const getMap = async () => {
 
-        assert.isTrue(map._ready);
+            var dbPath = path.join(process.cwd(), 'xtest.db');
+            var db = new Database(dbPath);
+            var map = await new AsyncMap(db, 'test').ready().then(m=> m.clear());
 
-        map.errors.subscribe(e=> { throw e; });
+            for(var i= 1 ; i < max; i++){
+                await map.set(i, i.toString());
+            }
 
-        await map.clear();
+            return map;
+        };
 
-        await map.set(1,'1');
+        let map = await getMap();
 
-        var value:number;
+        let count = 0 ;
 
-        for(var key of map.keys()){
-            value = await key;
+        let action = (value) => {
+            console.log('GotKey');
+            console.log(value);
+            count++;
+        };
+
+        for (var keyPromise of map.keys()) {
+            let key = await keyPromise;
+            if (key)
+                action(key);
         }
 
-        console.log('done');
-        assert.equal(value, 1);
+        assert.equal(count, max-1);
 
 
     })
